@@ -1,16 +1,9 @@
 %{
-/*
-  CS3300: Assignment P0
-  Author: Soham Tripathy CS20B073
-  Topic: Flex and Bison
+ #include <stdio.h>
+ #include <string.h>
+ #include <stdlib.h>
 
-*/
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
-//debug function to print characters
+//debug function
 void print(char* j) {
   return;
   printf("%s\n", j);
@@ -19,6 +12,7 @@ void print(char* j) {
 
 //for storing the token stream
 typedef struct Node {
+    int is_main_part;
     char* value;
     struct Node* next;
     struct Node* prev;
@@ -107,7 +101,7 @@ void addArg(char* _arg) {
 }
 
 //creating a node of token
-Node* createNode(char* s) {
+Node* createNode(char* s, int part) {
   Node* nwNode = (Node *) malloc(sizeof(Node));
   nwNode->value = s;
   nwNode->next = NULL;
