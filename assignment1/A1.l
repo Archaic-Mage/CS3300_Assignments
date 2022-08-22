@@ -6,6 +6,7 @@ integers {digit}+
 %% 
 
 "//".*[\n]" "*          { addE(createNode(strdup(yytext))); }
+"/*"([^*]|(\*+[^*/]))*\*+\/  { addE(createNode(strdup(yytext))); }    
 "#defineStmt2"          { addE(createNode(strdup(yytext)));
                             return T_DS2;     }
 "#defineStmt1"          { addE(createNode(strdup(yytext)));

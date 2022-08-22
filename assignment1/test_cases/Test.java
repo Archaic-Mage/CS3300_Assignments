@@ -1,14 +1,7 @@
-#defineExpr HUH(x,y,z) ((x.length)&&y)
-#defineExpr0 WUT() (69)
-#defineExpr1 LOL(x) ((WUT())*x)
-#defineExpr2 WTF(x,y) (x||(HUH(y,x,y)))
-#defineStmt0 FIRST() {x=WUT();}
-#defineStmt1 SECOND(x) {{x=2;} {FIRST();}}
-#defineStmt2 THIRD(y,z) {{x=3;} {z=y;}}
-#defineStmt FOUR(a,b,c,d,e,f) {{a=b;}{c=a;}{System.out.println(a);}}
-
+//hello
 class BinarySearch 
-{
+{   /* hllo
+     */
 	public static void main (String []aa)
 	{
 		System.out.println(LOL(LOL(WTF(2,a))));

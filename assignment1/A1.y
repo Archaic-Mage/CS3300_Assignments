@@ -329,7 +329,7 @@ void yyerror (const char *);
 
 %%
 
-goal: macro-definition-loop /* our printing should start from main class*/ {head = tail;} main-class type-definition-loop
+goal: macro-definition-loop main-class type-definition-loop
 ;
 
 macro-definition-loop: /* empty string */
@@ -502,8 +502,8 @@ primary-expression: integer
                   | o-b expression c-b
 ; 
 
-macro-definition: macro-def-expression
-                | macro-def-statement
+macro-definition: macro-def-expression {head = tail;}   /* removing macros from the printing list */
+                | macro-def-statement {head = tail;}
 ;
 
 macro-def-statement: define-stmt id {_temp->id = tail->value;} o-b id {addArg(tail->value);} comma id {addArg(tail->value);} comma id {addArg(tail->value);} comma-identifiers c-b o-c-b {_temp->from = tail;} statements c-c-b {_temp->to = tail->prev; _temp->from = _temp->from->next;}
