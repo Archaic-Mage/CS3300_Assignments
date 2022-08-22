@@ -109,6 +109,8 @@ integers {digit}+
 {integers}              { addE(createNode(strdup(yytext)));
                             yylval.num = atoi(yytext);
                             return T_NUM;     }
-.                       { addE(createNode(strdup(yytext))); }
+" "                     { addE(createNode(strdup(yytext))); }
+[\t]                    { addE(createNode(strdup(yytext))); }
+.                       { yyerror("error");                 }
 \n                      { addE(createNode(strdup(yytext))); }
 %%
