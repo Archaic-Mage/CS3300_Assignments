@@ -1,12 +1,17 @@
-//hello
+
 class BinarySearch 
-{   /* hllo
-     */
+{
 	public static void main (String []aa)
 	{
-		System.out.println(LOL(LOL(WTF(2,a))));
+		System.out.println(LOL(LOL(LOL(LOL(WTF(1,aa))))));
     }
 }
+
+/* 
+ * 
+ * 
+ * multi -l ine
+ */
 
 class BS{
     int[] lololo;

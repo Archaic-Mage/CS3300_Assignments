@@ -502,8 +502,8 @@ primary-expression: integer
                   | o-b expression c-b
 ; 
 
-macro-definition: macro-def-expression {head = tail;}   /* removing macros from the printing list */
-                | macro-def-statement {head = tail;}
+macro-definition: macro-def-expression {head = tail->next;}   /* removing macros from the printing list */
+                | macro-def-statement {head = tail->next;}
 ;
 
 macro-def-statement: define-stmt id {_temp->id = tail->value;} o-b id {addArg(tail->value);} comma id {addArg(tail->value);} comma id {addArg(tail->value);} comma-identifiers c-b o-c-b {_temp->from = tail;} statements c-c-b {_temp->to = tail->prev; _temp->from = _temp->from->next;}
