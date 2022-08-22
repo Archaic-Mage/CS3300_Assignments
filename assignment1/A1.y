@@ -4,68 +4,75 @@
   Author: Soham Tripathy CS20B073
   Topic: Flex and Bison
 
+  Comment: Thank You For The Assignment  (-_-)
+           Please don't give penalty     (T_T)
+
 */
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-//debug function to print characters
-void print(char* j) {
-  return;
-  printf("%s\n", j);
-  fflush(stdout);
-}
-
 //for storing the token stream
 typedef struct Node {
-    char* value;
-    struct Node* next;
+    char* value;            //value of tokens
+    struct Node* next;      //to traverse through the tokens
     struct Node* prev;
-
 } Node;
-
-void printN(Node* a, Node* b) {
-  Node* curr = a;
-
-  while(curr!=NULL && curr!=b) {
-    printf("%s", curr->value);
-    curr = curr->next;
-  }
-  if(curr!= NULL) printf("%s\n",curr->value);
-}
-
-//for storing arguments in the Macro replacement
-typedef struct Argument {
-  char* id;
-  Node* from;
-  Node* to;
-  struct Argument* next;
-  struct Argument* prev;
-} Argument;
-
-
-//for storing the macro replacements
-typedef struct Macro {
-  char* id;
-  Argument* arg_head;
-  Argument* arg_tail;
-  Node* from;
-  Node* to;
-  struct Macro* next;
-  struct Macro* prev;
-} Macro;
 
 //for traversing tokens and printing them
 struct Node *head = NULL;
 struct Node *tail = NULL;
 
+//creating a node for token
+Node* createNode(char* s) {
+  Node* nwNode = (Node *) malloc(sizeof(Node));
+  nwNode->value = s;
+  nwNode->next = NULL;
+  nwNode->prev = NULL;
+  return nwNode;
+}
+
+//adding the node to the token stream, at tail
+void addE(Node* nwNode) {
+  if(head == NULL) {
+    head = nwNode;
+    tail = nwNode;
+    return;
+  } 
+
+  nwNode->prev = tail;
+  tail->next = nwNode;
+  tail = nwNode;
+}
+
+//for storing arguments in the Macro replacement
+typedef struct Argument { //                                            for example - x(arg) called as x((0+1))
+  char* id;               //stores argument id                          id = arg                   
+  Node* from;             //replacement of the argument - from          from = (           
+  Node* to;               //replacement of the argument - to            to = )
+  struct Argument* next;  //for traversing through                      
+  struct Argument* prev;
+} Argument;
+
+
+//for storing the Macro replacements
+typedef struct Macro {            
+  char* id;                   //macro identifier
+  Argument* arg_head;         //stores the argument list head
+  Argument* arg_tail;         //stores the argument list tail
+  Node* from;                 //replacement
+  Node* to;
+  struct Macro* next;         //for traversing
+  struct Macro* prev;
+} Macro;
+
 //for storing the macros
 struct Macro* _head = NULL;
 struct Macro* _tail = NULL;
 
-//creating a macro 
-struct Macro *_temp = NULL;
+//creating a macro
+struct Macro *_temp = NULL;       //contains the current parsing macro
 
 void createAndAddMacro() {
   Macro* nwMacro = (Macro *) malloc(sizeof(Macro));
@@ -90,6 +97,7 @@ void createAndAddMacro() {
 }
 
 //creating arguments for the macro
+//adds the arguments to the current macro being processed
 void addArg(char* _arg) {
   Argument* nwArg = (Argument*) malloc(sizeof(Argument));
   nwArg->id = _arg;
@@ -106,46 +114,30 @@ void addArg(char* _arg) {
   return;
 }
 
-//creating a node of token
-Node* createNode(char* s) {
-  Node* nwNode = (Node *) malloc(sizeof(Node));
-  nwNode->value = s;
-  nwNode->next = NULL;
-  nwNode->prev = NULL;
-  return nwNode;
-}
+/* Replacement Policy */
 
-//adding the node to the token stream, at tail
-void addE(Node* nwNode) {
-  if(head == NULL) {
-    head = nwNode;
-    tail = nwNode;
-    return;
-  } 
-
-  nwNode->prev = tail;
-  tail->next = nwNode;
-  tail = nwNode;
-}
-
-//replacement
-
+//Contains information about the current macro matched
 typedef struct ReplaceMacro {
-  Macro* replace_macro;
-  Argument* rep_arg_head;
-  Argument* rep_arg_tail;
-  Argument* processed_arg;
-  Node* replace_from;
-  Node* replace_to;
-  struct ReplaceMacro* next;
+  Macro* replace_macro;               //The matched macro
+  Argument* rep_arg_head;             //Argument list containg information about what to replace it with
+  Argument* rep_arg_tail;             
+  Argument* processed_arg;            //Current argument being processed
+  Node* replace_from;                 //Replace from in the file
+  Node* replace_to;                   //Replace to in the file
+  struct ReplaceMacro* next;          //traversing
   struct ReplaceMacro* prev;
 } ReplaceMacro;
 
+//For keeping track of Macro inside Macro
 ReplaceMacro* test_head;
 ReplaceMacro* test_tail;
-Argument* rep_arg;
 int process_macro = 0;
 
+//Temp Variable used to link arguments while parsing
+Argument* rep_arg;
+
+
+//Creates a duplicate of the Argument and stores it in Replace Macro
 void addRepArg(Argument* rep) {
   Argument* nwArg = (Argument*) malloc(sizeof(Argument));
 
@@ -164,6 +156,7 @@ void addRepArg(Argument* rep) {
   test_tail->rep_arg_tail = nwArg; 
 }
 
+//Creates a Replace Macro
 void createReplaceMacro(Macro* rep_mac) {
   ReplaceMacro* nwRepMac = (ReplaceMacro*) malloc(sizeof(ReplaceMacro));
 
@@ -180,6 +173,7 @@ void createReplaceMacro(Macro* rep_mac) {
   test_tail = nwRepMac;
 }
 
+//Checks if 'id' is matched to any Macro definition
 Macro* findMacroMatch(char* id) {
   Macro* curr = _head;
   while(curr != NULL) {
@@ -193,6 +187,7 @@ Macro* findMacroMatch(char* id) {
   return NULL;
 }
 
+//If 'id' matches then creates a Replace Macro
 void findCreateMacroMatch(char* id) {
   Macro* match = findMacroMatch(id);
   if(match != NULL) {
@@ -201,6 +196,7 @@ void findCreateMacroMatch(char* id) {
   } else process_macro= 0;
 }
 
+//Finds if the Argument 'id' matches with anything in the replacement
 Argument* findArgMatch(Node* to_match) {
   Argument* curr = test_tail->rep_arg_head;
   while(curr != NULL) {
@@ -213,9 +209,11 @@ Argument* findArgMatch(Node* to_match) {
   return NULL;
 }
 
+//Creates a replacement linked list to go from 'replace_from' to 'replace_to'
 Node* rep_head = NULL;
 Node* rep_tail = NULL;
 
+//Creates a duplicate of the given node from the linked list of tokens
 void copyAndAddNode(Node* to_copy) {
   Node* nwNode = (Node*) malloc(sizeof(Node));
   nwNode->value = to_copy->value;
@@ -231,6 +229,8 @@ void copyAndAddNode(Node* to_copy) {
   rep_tail = nwNode;
 }
 
+//Creates the replacement linked list
+//and Replaces them
 void replaceMacroFunc(ReplaceMacro* rep) {
   
   rep_head = NULL;
@@ -239,7 +239,7 @@ void replaceMacroFunc(ReplaceMacro* rep) {
   Node* curr = rep->replace_macro->from;
 
   while(curr != NULL && curr != rep->replace_macro->to) {   
-    Argument* match_arg = findArgMatch(curr); 
+    Argument* match_arg = findArgMatch(curr);               //checking for argument match
     if(match_arg == NULL) copyAndAddNode(curr);
     else {
       Node* curr_node = match_arg->from;
@@ -269,7 +269,7 @@ void replaceMacroFunc(ReplaceMacro* rep) {
   rep->replace_from->prev->next = rep_head;
   tail = rep_tail;
 
-
+  //remove the processed Replace Macro from the list (useful in Macro in Macro)
   if(test_tail == test_head) {
     test_tail = NULL;
     test_head =NULL;
@@ -280,10 +280,37 @@ void replaceMacroFunc(ReplaceMacro* rep) {
   }
 }
 
+//variable to tell if the there is macro in macro
 int in_mac = 0;
 
- int yylex (void);
- void yyerror (const char *);
+//debug function to print characters
+
+/*uncomment and remove return */
+
+/* it can be used to print character stream */
+
+// void print(char* j) {
+//   return;
+//   printf("%s\n", j);
+//   fflush(stdout);
+// }
+
+/* it can be used to print linked list from Node 1 to Node 2 */
+
+// void printN(Node* a, Node* b) {
+//   return;
+//   Node* curr = a;
+
+//   while(curr!=NULL && curr!=b) {
+//     printf("%s", curr->value);
+//     curr = curr->next;
+//   }
+//   if(curr!= NULL) printf("%s\n",curr->value);
+// }
+
+int yylex (void);
+void yyerror (const char *);
+
 %}
 
 %union {
@@ -302,7 +329,7 @@ int in_mac = 0;
 
 %%
 
-goal: macro-definition-loop {head = NULL; tail = NULL;} main-class type-definition-loop
+goal: macro-definition-loop /* our printing should start from main class*/ {head = tail;} main-class type-definition-loop
 ;
 
 macro-definition-loop: /* empty string */
@@ -329,11 +356,11 @@ type-definition: class-open class-body
             |   class-extends-open class-body
 ;
 
-method-declaration-loop: 
+method-declaration-loop: /* empty string */
                     |   method-declaration-loop method-declaration
 ;
 
-type-identifiers:  
+type-identifiers:  /* empty string */
                 | type-identifiers type-identifier semi-colon
 ;
 
@@ -343,11 +370,11 @@ type-identifier:  type id
 method-declaration: public type-identifier o-b type-identifiers-comma c-b o-c-b type-identifiers statements return expression semi-colon c-c-b
 ; 
 
-type-identifiers-comma: 
+type-identifiers-comma: /* empty string */
                       | type-identifier comma-type-identifiers
 ;
 
-comma-type-identifiers: 
+comma-type-identifiers: /*empty string */
                       | comma type-identifier comma-type-identifiers 
 ;
 
@@ -357,7 +384,7 @@ type: int o-s-b c-s-b
   | id
 ;
 
-statements: 
+statements: /* empty string */
           | statement statements
 ;
 
@@ -368,18 +395,67 @@ statement: o-c-b statements c-c-b
           | if-statement
           | if-statement else statement
           | while o-b expression c-b statement 
-          | id o-b {findCreateMacroMatch(tail->prev->value); if(process_macro) { test_tail->replace_from = tail->prev; rep_arg = test_tail->replace_macro->arg_head; test_tail->processed_arg = test_tail->replace_macro->arg_head;}} expressions-comma c-b semi-colon { if(process_macro) {test_tail->replace_to = tail; replaceMacroFunc(test_tail); in_mac = 1;}}
+          | id o-b {findCreateMacroMatch(tail->prev->value); 
+                    if(process_macro) { 
+                      test_tail->replace_from = tail->prev; 
+                      rep_arg = test_tail->replace_macro->arg_head; 
+                      test_tail->processed_arg = test_tail->replace_macro->arg_head;
+                    }
+                  } expressions-comma c-b semi-colon 
+                  { if(process_macro) {
+                      if(test_tail->processed_arg!=NULL) {
+                        yyerror("error");
+                      }
+                      test_tail->replace_to = tail; 
+                      replaceMacroFunc(test_tail); 
+                      in_mac = 1;
+                    }
+                  }
 ;
 
 if-statement: if o-b expression c-b statement
 ;
 
-expressions-comma: 
-                | {if(process_macro) {rep_arg->from = tail->prev; addRepArg(rep_arg);} in_mac = 0;} expression {if(process_macro && in_mac) {rep_arg = test_tail->rep_arg_tail; rep_arg->to = tail; rep_arg->from = rep_arg->from->next; rep_arg = test_tail->processed_arg->next; test_tail->processed_arg = test_tail->processed_arg->next;} else if(process_macro) {rep_arg = test_tail->rep_arg_tail; rep_arg->to = tail->prev; rep_arg->from = rep_arg->from->next; rep_arg = test_tail->processed_arg->next; test_tail->processed_arg = test_tail->processed_arg->next;}} comma-expressions
+expressions-comma: /* empty string */
+                | {if(process_macro) {
+                    if(rep_arg == NULL) {
+                      yyerror("error");
+                    }
+                    rep_arg->from = tail->prev; 
+                    addRepArg(rep_arg);
+                    } 
+                  in_mac = 0;
+                  } expression 
+                  { if(process_macro) {
+                      rep_arg = test_tail->rep_arg_tail; 
+                      if(in_mac) rep_arg->to = tail;
+                      else rep_arg->to = tail->prev; 
+                      rep_arg->from = rep_arg->from->next; 
+                      rep_arg = test_tail->processed_arg->next; 
+                      test_tail->processed_arg = test_tail->processed_arg->next;
+                    }
+                  } comma-expressions
 ;
 
-comma-expressions: 
-                | comma {if(process_macro) {rep_arg->from = tail; addRepArg(rep_arg);} in_mac = 0;} expression {if(process_macro && in_mac) {rep_arg = test_tail->rep_arg_tail; rep_arg->to = tail; rep_arg->from = rep_arg->from->next; rep_arg = test_tail->processed_arg->next; test_tail->processed_arg = test_tail->processed_arg->next;} else if(process_macro) {rep_arg = test_tail->rep_arg_tail; rep_arg->to = tail->prev; rep_arg->from = rep_arg->from->next; rep_arg = test_tail->processed_arg->next; test_tail->processed_arg = test_tail->processed_arg->next;}} comma-expressions
+comma-expressions: /* empty string */
+                | comma { if(process_macro) {
+                            if(rep_arg == NULL) {
+                              yyerror("error");
+                            }
+                            rep_arg->from = tail; 
+                            addRepArg(rep_arg);
+                          } 
+                          in_mac = 0;
+                        } expression 
+                        { if(process_macro) {
+                            rep_arg = test_tail->rep_arg_tail; 
+                            if(in_mac) rep_arg->to = tail; 
+                            else rep_arg->to = tail->prev;
+                            rep_arg->from = rep_arg->from->next; 
+                            rep_arg = test_tail->processed_arg->next; 
+                            test_tail->processed_arg = test_tail->processed_arg->next;
+                          } 
+                        } comma-expressions
 ;
 
 expression: primary-expression and primary-expression
@@ -394,7 +470,22 @@ expression: primary-expression and primary-expression
           | primary-expression-dot length 
           | primary-expression
           | primary-expression-dot id o-b expressions-comma c-b
-          | id o-b {findCreateMacroMatch(tail->prev->value); if(process_macro) { print(tail->prev->value); test_tail->replace_from = tail->prev; rep_arg = test_tail->replace_macro->arg_head; test_tail->processed_arg = test_tail->replace_macro->arg_head;}} expressions-comma c-b {if(process_macro) {test_tail->replace_to = tail; print(test_tail->replace_from->value); replaceMacroFunc(test_tail); in_mac = 1;}}
+          | id o-b {findCreateMacroMatch(tail->prev->value); 
+                    if(process_macro) {
+                      test_tail->replace_from = tail->prev; 
+                      rep_arg = test_tail->replace_macro->arg_head; 
+                      test_tail->processed_arg = test_tail->replace_macro->arg_head;
+                    }
+                  } expressions-comma c-b 
+                  { if(process_macro) {
+                      if(test_tail->processed_arg!=NULL) {
+                        yyerror("error");
+                      }
+                      test_tail->replace_to = tail; 
+                      replaceMacroFunc(test_tail); 
+                      in_mac = 1;
+                    }
+                  }
 ;
 
 primary-expression-dot: primary-expression dot
@@ -427,7 +518,7 @@ macro-def-expression: define-expr id {_temp->id = tail->value;} o-b id {addArg(t
                     | define-expr-2 id {_temp->id = tail->value;} o-b id {addArg(tail->value);} comma id {addArg(tail->value);} c-b o-b {_temp->from = tail;} expression c-b {_temp->to = tail;}
 ;
 
-comma-identifiers: 
+comma-identifiers: /* empty string */
                 | comma id {addArg(tail->value);} comma-identifiers
 ;
 
