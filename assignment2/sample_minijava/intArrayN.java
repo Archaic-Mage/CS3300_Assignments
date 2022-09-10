@@ -7,7 +7,13 @@ class BinaryTree{
 class Tree extends BT {
     int c;
     int d;
-    public int Start(int c, int d) {
+    boolean f;
+    public int Start(int a, int b) {
+
+        int[] d;
+
+        System.out.println(d[f]);
+                
         return 0;
     }
 }
@@ -16,6 +22,7 @@ class BT {
     int a;
     int b;
     public int Start(int a, int b) {
+        a = b;
         return 0;
     }
 }

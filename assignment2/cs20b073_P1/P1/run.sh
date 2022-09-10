@@ -1,6 +1,7 @@
 #!/bin/sh
 
 javac P1.java
+mkdir results
 
 for f in ../../sample_minijava/*.java;
 do 

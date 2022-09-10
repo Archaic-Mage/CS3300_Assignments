@@ -7,7 +7,10 @@ class BinaryTree{
 class Tree extends BT {
     int c;
     int d;
-    public int Start(int c, int d) {
+    public int St(int c, int d) {
+        int a;
+        int a;
+        int b;
         return 0;
     }
 }
