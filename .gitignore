@@ -2,4 +2,5 @@ lex.yy.c
 *.exe
 *.tab.c
 main
-cs20b073*
+*.tar.gz
+*.class

@@ -1,4 +1,3 @@
-
 class BinarySearch{
     public static void main(String[] a){
 	System.out.println(new BS().Start((20+0)));
@@ -130,7 +129,7 @@ class BS{
 
 	size = sz ;
 	number = new int[sz] ;
-	
+	number[0] = 0;
 	j = 1 ;
 	k = size + 1 ;
 	while (j <= (size-1)) {
@@ -143,4 +142,10 @@ class BS{
 	return 0 ;	
     }
 
+}
+
+
+class BS{
+    int[] number ;
+    int size ;
 }
