@@ -103,6 +103,19 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       else {
          if(in_p.size() != in_c.size()) return 2;
          else {
+            /* if return type for child class method is t1 and for parent class method is t2
+             * then t1 <= t2 
+             */
+            
+            // for(int i = 0; i<in_p.size()-1; i++) {
+            //    if(!in_p.get(i).equals(in_c.get(i))) {
+            //       return 2;
+            //    }
+            // }
+            // if(!reach(in_c.lastElement(), in_p.lastElement())) return 2;
+
+            //if return type for child class method is t1 and for parent class method is t2
+            //then t1 == t2
             for(int i = 0; i<in_p.size(); i++) {
                if(!in_p.get(i).equals(in_c.get(i))) {
                   return 2;
