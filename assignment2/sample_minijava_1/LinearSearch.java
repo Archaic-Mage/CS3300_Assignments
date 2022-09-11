@@ -89,7 +89,7 @@ class LS {
 	while (j <= (size-1)) {
 	    aux01 = 2 * j ;
 	    aux02 = k - 3 ;
-	    number[5] = aux01 + aux02 ;
+	    number[j] = aux01 + aux02 ;
 	    j = j + 1 ;
 	    k = k - 1 ;
 	}

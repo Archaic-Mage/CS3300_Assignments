@@ -161,6 +161,35 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public void print(String s) {
       // System.out.println(s);
    }
+
+   //Checking for inheritance loop
+
+   public boolean checkInheritanceLoop() {
+      Set<String> visited = new HashSet<String>();
+
+      for(String C : class_name.keySet()) {
+         if(visited.contains(C)) continue;
+
+         visited.add(C);
+         String curr = C;
+         while(!curr.equals("null")) {
+            curr = class_name.get(curr);
+            if(curr == null) {
+               print("parent doesn't exists");
+               print_error();
+            }
+            if(!visited.contains(curr)) visited.add(curr);
+            else {
+               if(curr.equals(C)) {
+                  return true;
+               }
+               break;
+            }
+         }
+      }
+
+      return false;
+   }
   
 	 public R visit(NodeList n, A argu) {
       R _ret=null;
@@ -221,6 +250,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       if(duplicate) {
          print("Duplicate present");
+         print_error();
+      }
+
+      if(checkInheritanceLoop()) {
+         print("inheritanceLoop present");
          print_error();
       }
       
@@ -424,6 +458,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          print("No valid parent present");
          print_error();
       } else if(!iteration) {
+
          for(String idm: method_types.get(child).keySet()) {
             if(noOverloading(child, parent, idm) == 2) {
                print("Overloading not correct");
@@ -541,9 +576,16 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       curr_class_method = id;
       n.f8.accept(this, argu);
       n.f9.accept(this, argu);
-      n.f10.accept(this, argu);
+      String ret_type = (String) n.f10.accept(this, argu);
       n.f11.accept(this, argu);
       n.f12.accept(this, argu);
+
+      if(!iteration) {
+         if(!ret_type.equals(type)) {
+            print("Return type doesn't match");
+            print_error();
+         }
+      }
 
       curr_class_method = curr_class;
 
@@ -1178,15 +1220,24 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       if(!iteration) {
          list_args = methodtype(class_object, class_method);
+         if(list_args == null) {
+            print("No method declared for the call");
+            print_error();
+         }
          to_compare_args = list_args.size()-1;
       }
+
+      Vector<String> temp = list_args;
 
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
       n.f5.accept(this, argu);
 
+      list_args = temp;
+
       if(!iteration && to_compare_args == 0) {
-         _ret = (R) method_types.get(class_object).get(class_method);
+         print(list_args.lastElement());
+         _ret = (R) list_args.lastElement();
       } else if(!iteration) {
          print("fewer arguments in call");
          print_error();

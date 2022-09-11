@@ -16,7 +16,6 @@ class BS{
     public int Start(int sz){
 	int aux01 ;
 	int aux02 ;
-	
 	aux01 = this.Init(sz);
 	aux02 = this.Print();
 	if (this.Search(8)) {System.out.println((1+0));}

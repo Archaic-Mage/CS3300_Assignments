@@ -14,7 +14,7 @@ class TV {
 	Tree root ;
 	boolean ntb ;
 	int nti ;
-	MyVisitor v ;
+	MyVisitor v ;	
 
 	root = new Tree();
 	ntb = root.Init(16);
