@@ -7,8 +7,9 @@ public class P2 {
       try {
          Node root = new MiniJavaParser(System.in).Goal();
          GJDepthFirst df = new GJDepthFirst();
+         //Invoking for the first time to make symbol table and parse check
          Object value = root.accept(df, null); // Your assignment part is invoked here.
-
+         value = root.accept(df, null); //invoking second time for the type checking
       }
       catch (ParseException e) {
          System.out.println(e.toString());
