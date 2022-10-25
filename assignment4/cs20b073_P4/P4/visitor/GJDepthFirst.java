@@ -20,7 +20,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    //
 
    //keeping track of iteration
-   int iteration = 0;
+   int iteration = -1;
+
+   HashMap<Integer, Set<String>> use;
+   HashMap<Integer, Set<String>> def;
+   HashMap<Integer, Set<String>> in;
+   HashMap<Integer, Set<String>> out;
+   HashMap<Integer, Set<Integer>> adj;
+   HashMap<String, Integer> label_line = new HashMap<String, Integer>();
 
    //live intervals
    public class LiveRange {
@@ -45,6 +52,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }     
    }
 
+
    HashMap<String, Integer> temp_index;
 
    Vector<LiveRange> live_ranges;
@@ -62,6 +70,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    String curr_function;   
    String no_of_args;
    HashMap<String, HashMap<String, String>> allocations = new HashMap<String, HashMap<String, String>>();
+   HashMap<String, HashMap<String, Integer>> allocations_start = new HashMap<String, HashMap<String, Integer>>();
    HashMap<String, Integer> function_spills = new HashMap<String, Integer>();
    HashMap<String, Integer> functions_max_call = new HashMap<String, Integer> ();
 
@@ -80,12 +89,97 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    boolean call_exp = false;
    int arg_num = 0;
 
+   public void findInOut() {
+      in = new LinkedHashMap<Integer, Set<String>>();
+      out = new LinkedHashMap<Integer, Set<String>>();
+      //for all block B- in[B] = null, out[B] = null
+      for(Integer block: adj.keySet()) {
+         Set<String> block_var = new HashSet<String> ();
+         in.put(block, block_var);
+         out.put(block, block_var);
+      }
+
+      boolean changed = true;
+
+      while(changed) {
+         boolean status = false;
+         for(Integer block: adj.keySet()) {
+            Set<String> in1_b = in.get(block);
+            Set<String> out1_b = out.get(block);
+            Set<String> in_b = new HashSet<String>();
+            Set<String> out_b = new HashSet<String>();
+            out_b.addAll(out1_b);
+            Set<String> out_m_def = out_b;
+            //out[b] - def[b]
+            if(def.get(block) != null) out_m_def.removeAll(def.get(block));
+            //in[b] = use[b] U (out[b] - def[b])
+            if(use.get(block) != null) in_b.addAll(use.get(block));
+            in_b.addAll(out_m_def);
+            
+
+            Set<Integer> nei = adj.get(block);
+            //for all succ s, out[b] = U in[s]
+            for(Integer i: nei) {
+               if(in.get(i) != null) {
+                  out_b.addAll(in.get(i));
+               }
+            }
+
+            in.replace(block, in_b);
+            out.replace(block, out_b);
+
+            if(in1_b.equals(in_b) && out1_b.equals(out_b)) {
+               status = status | false;
+            } else status = status | true;
+         }
+         changed = status;
+      }
+
+      // System.out.println(curr_function);
+
+      // for(Integer block: in.keySet()) {
+      //    System.out.println("Block In " + block + ": " + in.get(block));
+      // }
+      // for(Integer block: out.keySet()) {
+      //    System.out.println("Block Out " + block + ": " + out.get(block));
+      // }
+   }
+
+   public void findLiveInterval() {
+      for(Integer block: adj.keySet()) {
+         Set<String> live_till = in.get(block);
+         Set<String> live_from = out.get(block);
+         for(String temp: live_till) {
+            LiveRange t;
+            if(temp_index.containsKey(temp)) {
+               int index = temp_index.get(temp);
+               t = live_ranges.get(index);
+               t.end_line = block;
+            }
+         }
+         for(String temp: live_from) {
+            if(temp_index.containsKey(temp)) continue;
+            LiveRange t;
+            t = new LiveRange();
+            t.temp = temp;
+            t.start_line =  block;
+            t.end_line = block;
+            temp_index.put(temp, live_ranges.size());
+            live_ranges.add(t);
+         }
+      }
+      // System.out.println(curr_function);
+      // for(LiveRange t: live_ranges) {
+      //    System.out.println(t.temp+": live-from: " + t.start_line + "; live-till: "+t.end_line);
+      // }
+   }
+
    public void initialize() {
       //for live ranges
       live_intervals = new PriorityQueue<LiveRange>(live_ranges.size(), new AscendingStart());
 
       for(LiveRange t: live_ranges) {
-         if(curr_function.equals("MAIN") || (t.start_line != t.end_line) || Integer.parseInt(no_of_args) < Integer.parseInt(t.temp)) live_intervals.add(t);
+         live_intervals.add(t);
       }
 
       register = new HashMap<LiveRange, String> ();
@@ -233,11 +327,23 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    
    public R visit(Procedure n, A argu) {
       R _ret=null;
-      line_number++;
+
+      //creating flow graph
+      adj = new LinkedHashMap<Integer, Set<Integer>>();
+      Set<Integer> nei = new HashSet<Integer>();
+      line_number++;      
+      nei.add(line_number+1);
+      adj.put(line_number, nei);
+
+      //initializing variables for stack size, max call etc.
       call_exp = false;
       max_arg_call = -1;
       int stack_size = 8;
-      spills = 0;
+      spills = 0;  
+
+      //initializing use and def for the function
+      use = new HashMap<Integer, Set<String>>();
+      def = new HashMap<Integer, Set<String>>();
 
       String label = (String) n.f0.accept(this, argu);
       curr_function = label;
@@ -276,30 +382,57 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       if(iteration == 0) {
          for(int i = 0; i<Integer.parseInt(int_literal); i++) {
-            LiveRange t = new LiveRange();
+            Set<String> def_var;
             String temp = Integer.toString(i);
-            t.temp = temp;
-            t.start_line = line_number;
-            t.end_line = line_number;
-            temp_index.put(temp, live_ranges.size());
-            live_ranges.add(t);
+            if(def.containsKey(line_number)) {
+               def_var = def.get(line_number);
+               def_var.add(temp);
+               def.replace(line_number, def_var);
+            } else {
+               def_var = new HashSet<String>();
+               def_var.add(temp);
+               def.put(line_number, def_var);
+            }
          }
       }
       
       n.f4.accept(this, argu);
 
+      if(iteration == 0) {
+         // System.out.println(curr_function);
+         // for(int line: use.keySet()) {
+         //    System.out.print("line use: "+line + " : ");
+         //    for(String var: use.get(line)) {
+         //       System.out.print(var+" ");
+         //    }
+         //    System.out.println();
+         // }
+         // for(int line: def.keySet()) {
+         //    System.out.print("line def: "+line + " : ");
+         //    for(String var: def.get(line)) {
+         //       System.out.print(var+" ");
+         //    }
+         //    System.out.println();
+         // }
+         findInOut();
+         findLiveInterval();
+      }
+
       if(iteration == 0) allocateRegisters();
 
       if(iteration == 0) {
          HashMap<String, String> temp = new HashMap<String, String> ();
+         HashMap<String, Integer> temp_start = new HashMap<String, Integer>();
          // System.out.println(curr_function);
 
          for(LiveRange t: register.keySet()) {
             // System.out.println(t.temp + ": " + register.get(t));
             temp.put(t.temp, register.get(t));
+            temp_start.put(t.temp, t.start_line);
          }
 
          allocations.put(curr_function, temp);
+         allocations_start.put(curr_function, temp_start);
          function_spills.put(curr_function, spills);
          functions_max_call.put(curr_function, max_arg_call);
       }
@@ -320,15 +453,28 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Goal n, A argu) {
       R _ret=null;
+      line_number = 0; //starts the program with line number 0
 
+      //creating flow graph
+      adj = new LinkedHashMap<Integer, Set<Integer>>();
+      Set<Integer> nei = new HashSet<Integer>();
       line_number++;
+      nei.add(line_number+1);
+      adj.put(line_number, nei);
+
       n.f0.accept(this, argu);
+
+      //initializing variables of required values
       curr_function = "MAIN";
       call_exp = false;
       max_arg_call = -1;
       int stack_size = 0;
       spills = 0;
       no_of_args = "0";
+
+      //initializing use and def for the main block
+      use = new HashMap<Integer, Set<String>>();
+      def = new HashMap<Integer, Set<String>>();
 
       if(iteration == 1) {
          max_arg_call = functions_max_call.get(curr_function);
@@ -352,9 +498,34 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f1.accept(this, argu);
 
       if(iteration == 0) {
+         // for(int line: use.keySet()) {
+         //    System.out.print("line: "+line + " : ");
+         //    for(String var: use.get(line)) {
+         //       System.out.print(var+" ");
+         //    }
+         //    System.out.println();
+         // }
+         // for(int line: def.keySet()) {
+         //    System.out.print("line: "+line + " : ");
+         //    for(String var: def.get(line)) {
+         //       System.out.print(var+" ");
+         //    }
+         //    System.out.println();
+         // }
+         findInOut();
+         findLiveInterval();
+      }
+
+      if(iteration == 0) {
          allocateRegisters();
       }
+
+      //for the flow graph
+      nei = new HashSet<Integer>();
       line_number++;
+      nei.add(line_number+1);
+      adj.put(line_number, nei);
+
       n.f2.accept(this, argu);
 
       if(iteration == 1) {
@@ -365,19 +536,22 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       
       if(iteration == 0) {
          HashMap<String, String> temp = new HashMap<String, String> ();
+         HashMap<String, Integer> temp_start = new HashMap<String, Integer> ();
 
          for(LiveRange t: register.keySet()) {
             // System.out.println(t.temp + ": " + register.get(t));
             temp.put(t.temp, register.get(t));
+            temp_start.put(t.temp, t.start_line);
          }
 
          allocations.put(curr_function, temp);
+         allocations_start.put(curr_function, temp_start);
          function_spills.put(curr_function, spills);
          functions_max_call.put(curr_function, max_arg_call);
       }
 
       n.f3.accept(this, argu);
-      n.f4.accept(this, argu);  
+      n.f4.accept(this, argu);       
       
       iteration++;
 
@@ -407,8 +581,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Stmt n, A argu) {
       R _ret=null; 
-      line_number++; 
-      n.f0.accept(this, argu);      
+      Set<Integer> nei = new HashSet<Integer>();
+      line_number++;
+      //creating flow graph
+      nei.add(line_number+1);
+      adj.put(line_number, nei);
+
+      n.f0.accept(this, argu);
+
       return _ret;
    }
 
@@ -429,7 +609,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(ErrorStmt n, A argu) {
       R _ret=null;
+
       n.f0.accept(this, argu);
+
       if(iteration == 1) {
          System.out.println("ERROR");
       }
@@ -443,6 +625,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(CJumpStmt n, A argu) {
       R _ret=null;
+
+      Set<Integer> nei = adj.get(line_number);
+
+      int cjump_l = line_number;
+
       String cjump = (String) n.f0.accept(this, argu);
 
       type = "use";
@@ -454,7 +641,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String label = (String) n.f2.accept(this, argu);
       to_print_label = init;
 
+      //for the flow graph
+      if(iteration == 0) {
+         // System.out.println(curr_function+"_"+label +": " + label_line.get(curr_function+"_"+label));
+         nei.add(label_line.get(curr_function+"_"+label));
+         adj.replace(cjump_l, nei);
+      }
+
       if(iteration == 1) System.out.println(cjump + " " + use_temp +" " + label);
+
       return _ret;
    }
 
@@ -464,12 +659,25 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(JumpStmt n, A argu) {
       R _ret=null;
+      Set<Integer> nei = adj.get(line_number);
+
+      int jump_l = line_number;
+
       String jump = (String) n.f0.accept(this, argu);
+
       boolean init = to_print_label;
       to_print_label = false;
       String label = (String) n.f1.accept(this, argu);
       to_print_label = init;
+
+      //for the flow graph
+      if(iteration == 0) {
+         nei.add(label_line.get(curr_function+"_"+label));
+         adj.replace(jump_l, nei);
+      }
+
       if(iteration == 1) System.out.println(jump + " " + label);
+
       return _ret;
    }
 
@@ -601,7 +809,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(StmtExp n, A argu) {
       R _ret=null;
+
+      //creating flow graph
+      Set<Integer> nei = new HashSet<Integer>();
       line_number++;
+      nei.add(line_number+1);
+      adj.put(line_number, nei);
+
       n.f0.accept(this, argu);
 
       if(iteration == 1) {
@@ -617,12 +831,25 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
 
       n.f1.accept(this, argu);
+
+      //creating flow graph
+      nei = new HashSet<Integer>();
       line_number++;
+      nei.add(line_number+1);
+      adj.put(line_number, nei);
+
       n.f2.accept(this, argu);
+
       type = "use";
       String sim_exp = (String) n.f3.accept(this, argu);
       type = "null";
+
+      //creating  flow graph
+      nei = new HashSet<Integer>();
       line_number++;
+      nei.add(line_number+1);
+      adj.put(line_number, nei);
+
       n.f4.accept(this, argu);
 
       if(iteration == 1) {
@@ -648,10 +875,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Call n, A argu) {
       R _ret=null;
+
       String call = (String) n.f0.accept(this, argu);
-      String sim_exp = (String) n.f1.accept(this, argu);      
+
+      String sim_exp = (String) n.f1.accept(this, argu);   
+
       call_exp = true;
       arg_num = 0;
+
       n.f2.accept(this, argu);
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
@@ -683,6 +914,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(HAllocate n, A argu) {
       R _ret=null;
+
       String hallocate = (String) n.f0.accept(this, argu);
       type = "use";
       String sim_exp = (String) n.f1.accept(this, argu);
@@ -702,7 +934,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(BinOp n, A argu) {
       R _ret=null;
+
       String operator = (String) n.f0.accept(this, argu);
+
       type = "use";
       String temp = (String) n.f1.accept(this, argu);
       String sim_exp = (String) n.f2.accept(this, argu);
@@ -735,10 +969,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(SimpleExp n, A argu) {
       R _ret=null;
+
       boolean init = to_print_label;
       to_print_label = false;
       _ret = n.f0.accept(this, argu);
       to_print_label = init;
+
       return _ret;
    }
 
@@ -753,6 +989,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String temp = (String) n.f1.accept(this, argu);
 
       if(iteration == 1) {
+
          if(call_exp) {
             if(arg_num < 4) {
                System.out.println("MOVE a" + arg_num + " " + allocations.get(curr_function).get(temp));
@@ -784,8 +1021,21 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
             return (R) temp;
          }
+
+         if(allocations.get(curr_function).get(temp) == null) {
+            temp = "v1";
+            return (R) temp;
+         }
+
+         if(allocations_start.get(curr_function).get(temp) > line_number) {
+            // System.out.println("this case : " + temp);
+            temp = "v1";
+            return (R) temp;
+         }
          
          temp = allocations.get(curr_function).get(temp);
+
+
          if(temp.charAt(0) == 'l' && type.equals("use")) {
             System.out.println("ALOAD v1 SPILLEDARG " + temp.substring(1));
             temp = "v1";
@@ -801,21 +1051,29 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          arg_num++;
       }
       
-      if(iteration == 0 && type.equals("use")) {
-         int index = temp_index.get(temp);
-         LiveRange t = live_ranges.get(index);
-         t.end_line = line_number;
-      } else if(iteration == 0 && type.equals("def")) {
-         LiveRange t;
-         int index;
-         if(temp_index.get(temp) == null) {
-            t = new LiveRange();
-            t.temp = temp;
-            t.start_line = line_number;
-            t.end_line = line_number;
-            index = live_ranges.size();
-            temp_index.put(temp, index);
-            live_ranges.add(t);
+      if(iteration == 0) {
+         if(type.equals("use")) {
+            Set<String> use_var;
+            if(use.containsKey(line_number)) {
+               use_var = use.get(line_number);
+               use_var.add(temp);
+               use.replace(line_number, use_var);
+            } else {
+               use_var = new HashSet<String>();
+               use_var.add(temp);
+               use.put(line_number, use_var);
+            }
+         } else if(type.equals("def")) {
+            Set<String> def_var;
+            if(def.containsKey(line_number)) {
+               def_var = def.get(line_number);
+               def_var.add(temp);
+               def.replace(line_number, def_var);
+            } else {
+               def_var = new HashSet<String>();
+               def_var.add(temp);
+               def.put(line_number, def_var);
+            }
          }
       }
 
@@ -839,14 +1097,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String label = (String) n.f0.accept(this, argu);
 
       if(to_print_label) {
-         if(iteration == 0) {
-            line_number++;
+         Set<Integer> nei = new HashSet<Integer>();
+         line_number++;
+         nei.add(line_number+1);
+         adj.put(line_number, nei);
+         if(iteration == -1) {
             label_allocated.put(curr_function+"_"+label, "L"+curr_label);
+            label_line.put(curr_function+"_"+label, line_number);
             curr_label++;
          } else if(iteration == 1) {
             System.out.println(label_allocated.get(curr_function+"_"+label));
          }
-      } else {
+      } else if(iteration == 1) {
          if(label_allocated.get(curr_function+"_"+label) != null) {
             label = label_allocated.get(curr_function+"_"+label);
          }

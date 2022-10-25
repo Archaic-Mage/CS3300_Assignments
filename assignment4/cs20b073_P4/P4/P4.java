@@ -9,6 +9,7 @@ public class P4 {
          GJDepthFirst df = new GJDepthFirst();
          Object value = root.accept(df, null); // Your assignment part is invoked here.
          value = root.accept(df, null);
+         value = root.accept(df, null);
       }
       catch (ParseException e) {
          System.out.println(e.toString());
