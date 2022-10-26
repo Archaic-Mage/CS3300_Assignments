@@ -327,7 +327,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    
    public R visit(Procedure n, A argu) {
       R _ret=null;
-
+      stack_locations = 0;
       //creating flow graph
       adj = new LinkedHashMap<Integer, Set<Integer>>();
       Set<Integer> nei = new HashSet<Integer>();
@@ -694,7 +694,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       type = "use";
       String def_temp = (String) n.f1.accept(this, argu);
-      type = "null";     
+      type = "null";   
+      
+      //taking care of multi spill
+      if(iteration == 1) {
+         if(def_temp.equals("v1")) {
+            System.out.println("MOVE v0 v1");
+            def_temp = "v0";
+         }
+      }
 
       String int_literal = (String) n.f2.accept(this, argu);
 
@@ -704,7 +712,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       if(iteration == 1) {
          System.out.println(hstore + " " + def_temp + " " + int_literal + " " + use_temp);
-         if(def_temp.equals("v0")) System.out.println("ASTORE SPILLEDARG " + to_store_in + " v0");
       }
       return _ret;
    }
@@ -826,7 +833,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int till = Integer.min(Integer.parseInt(no_of_args), 4);
          for(int i = 0; i<till; i++) {
             String al_reg = allocations.get(curr_function).get(Integer.toString(i));
-            if(al_reg != null) System.out.println("MOVE " + al_reg + " a" + i);
+            if(al_reg != null) {
+               if(al_reg.charAt(0) == 'l') {
+                  System.out.println("MOVE v0 a" + i);
+                  System.out.println("ASTORE SPILLEDARG " + al_reg.substring(1) + " v0");
+               }
+               else System.out.println("MOVE " + al_reg + " a" + i);
+            }
          }
       }
 
@@ -879,6 +892,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String call = (String) n.f0.accept(this, argu);
 
       String sim_exp = (String) n.f1.accept(this, argu);   
+
+      if(iteration == 1) {
+         if(sim_exp.equals("v1")) {
+            System.out.println("MOVE v0 v1");
+            sim_exp = "v0";
+         }
+      }
 
       call_exp = true;
       arg_num = 0;
@@ -939,6 +959,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       type = "use";
       String temp = (String) n.f1.accept(this, argu);
+
+      if(iteration == 1) {
+         if(temp.equals("v1")) {
+            System.out.println("MOVE v0 v1");
+            temp = "v0";
+         }
+      }
+
       String sim_exp = (String) n.f2.accept(this, argu);
       type = "null";
 
@@ -984,43 +1012,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Temp n, A argu) {
       R _ret=null;
+      String allocated_reg = null;
 
       n.f0.accept(this, argu);
       String temp = (String) n.f1.accept(this, argu);
 
-      if(iteration == 1) {
-
-         if(call_exp) {
-            if(arg_num < 4) {
-               System.out.println("MOVE a" + arg_num + " " + allocations.get(curr_function).get(temp));
-            } else {
-               System.out.println("PASSARG " + (arg_num-3) + " " + allocations.get(curr_function).get(temp));
-            }
-            arg_num++;
-
-            return null;
-         }
-
-         
-
-         if(!curr_function.equals("MAIN") && Integer.parseInt(temp) < Integer.parseInt(no_of_args)) {
-            String allocated_reg = allocations.get(curr_function).get(temp);
-            if(Integer.parseInt(temp) < 4) {
-               temp = allocated_reg;
-            }
-            else {
-               if(type.equals("use")) {
-                  System.out.println("ALOAD v1 SPILLEDARG " + (Integer.parseInt(temp) - 4));
-                  System.out.println("MOVE " + allocated_reg + " v1");
-                  temp = allocated_reg;
-               } else if(type.equals("def")) {
-                  to_store_in = Integer.toString((Integer.parseInt(temp) - 4));
-                  temp = "v0";
-               }
-            }
-
-            return (R) temp;
-         }
+      if(iteration == 1) {         
 
          if(allocations.get(curr_function).get(temp) == null) {
             temp = "v1";
@@ -1032,16 +1029,54 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             temp = "v1";
             return (R) temp;
          }
+
+         if(!curr_function.equals("MAIN") && Integer.parseInt(temp) < Integer.parseInt(no_of_args)) {
+            allocated_reg = allocations.get(curr_function).get(temp);
+            if(Integer.parseInt(temp) < 4) {
+               if(allocated_reg.charAt(0) == 'l' && type.equals("use")) {
+                  System.out.println("ALOAD v1 SPILLEDARG " + allocated_reg.substring(1));
+                  allocated_reg = "v1";
+               } else if(allocated_reg.charAt(0) == 'l') {
+                  to_store_in = allocated_reg.substring(1);
+                  allocated_reg = "v0";
+               }
+            }
+            else {
+               if(type.equals("use")) {
+                  System.out.println("ALOAD v1 SPILLEDARG " + (Integer.parseInt(temp) - 4));
+                  if(allocated_reg.charAt(0) == 'l') allocated_reg = "v1";
+                  else {
+                     System.out.println("MOVE " + allocated_reg + " v1");
+                  }
+               } else if(type.equals("def")) {
+                  to_store_in = Integer.toString((Integer.parseInt(temp) - 4));
+                  allocated_reg = "v0";
+               }
+            }
+         }
          
          temp = allocations.get(curr_function).get(temp);
 
+         if(allocated_reg == null) {
+            if(temp.charAt(0) == 'l' && type.equals("use")) {
+               System.out.println("ALOAD v1 SPILLEDARG " + temp.substring(1));
+               temp = "v1";
+            } else if(temp.charAt(0) == 'l') {
+               to_store_in = temp.substring(1);
+               temp = "v0";
+            }
+         } else temp = allocated_reg;
+         
 
-         if(temp.charAt(0) == 'l' && type.equals("use")) {
-            System.out.println("ALOAD v1 SPILLEDARG " + temp.substring(1));
-            temp = "v1";
-         } else if(temp.charAt(0) == 'l') {
-            to_store_in = temp.substring(1);
-            temp = "v0";
+         if(call_exp) {
+            if(arg_num < 4) {
+               System.out.println("MOVE a" + arg_num + " " + temp);
+            } else {
+               System.out.println("PASSARG " + (arg_num-3) + " " + temp);
+            }
+            arg_num++;
+
+            return null;
          }
 
          return (R) temp;

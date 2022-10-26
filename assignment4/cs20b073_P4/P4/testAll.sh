@@ -1,5 +1,7 @@
 #/bin/sh
 
+mkdir microIr miniRa
+
 for f in ./results/*.miniRA;
 do 
     q="$(basename $f .miniRA)"
